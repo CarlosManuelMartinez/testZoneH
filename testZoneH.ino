@@ -18,9 +18,12 @@ DHT sensor3(10,DHT11);
 DHT sensor4(13,DHT11);
 
 Zone zone1("Principal bedroom", 2, 3, 22);
-Zone zone2("Children bedroom", 5, 6, 25);
+Zone zone2("Children bedroom", 5, 6, 28);
 Zone zone3("Study", 8, 9, 25);
-Zone zone4("Living room", 11, 12, 25);
+Zone zone4("Living room", 11, 12, 28);
+
+Zone zones[4] = {zone1, zone2, zone3, zone4};
+DHT sensors[4] = {sensor1, sensor2, sensor3, sensor4};
 
 
 boolean print = true;
@@ -34,7 +37,6 @@ void printInfo(Zone zone, DHT sensor) {
   float humidity = sensor.readHumidity();
   float heatIndex = sensor.computeHeatIndex();
   
-  Serial.println("----------------------------");
   Serial.print("Zone: ");
   Serial.println(name);
 
@@ -62,7 +64,7 @@ void printInfo(Zone zone, DHT sensor) {
     Serial.println("Damp ERROR");
   }
 
-  Serial.println("----------------------------");
+  //Serial.println("----------------------------");
 }
 
 bool stopDamp(Zone zone){
@@ -89,84 +91,84 @@ bool moveDamp(Zone zone, DHT sensor, bool action){
     delay(timeMotor);
     pinMode(pinOpen, LOW);
     delay(timeAction);
-    zone.setStateDamp(true);
-    Serial.print("ABRO");
+    dampState = true;
+    Serial.println("------------------");
+    Serial.println("ABRO");
   }else if (action == false && dampState == true){ //Closed damp and change state
     stopDamp(zone);
     pinMode(pinClosed, HIGH);
     delay(timeMotor);
     pinMode(pinClosed, LOW);
     delay(timeAction);
-    zone.setStateDamp(false);
-    Serial.print("CIERRO");
+    dampState = false;
+    Serial.println("------------------");
+    Serial.println("CIERRO");
   }else{
-    Serial.print("NO SETEO EL ESTADO");
+  
+    Serial.println("------------------");
+    Serial.println("NI CIERRO NI ABRO");
   } 
 
   return dampState;
 }
 
-void climateZone(bool mode, Zone zone, DHT sensor){
+bool climateZone(bool mode, Zone zone, DHT sensor){
 
+  bool stateDamp = zone.getStateDamp();
   float temperature = sensor.readTemperature();
+  int t = round(temperature);
   float temperatureTarget = zone.getTemperature();
-
-  if(mode == true && temperature > temperatureTarget){//Summer on demand
-    moveDamp(zone, sensor, true);
-  }else if(mode == false && temperature < temperatureTarget){//Winter on demand
-    moveDamp(zone, sensor, true);
-  }else if(mode == true && temperature <= temperatureTarget){//Summer out of demand
-    moveDamp(zone, sensor, false);
-  }else if(mode == false && temperature <= temperatureTarget){//Winter out of demand
-    moveDamp(zone, sensor, false);
+  bool onDemand;
+  
+  if(mode == true && t > temperatureTarget ){//Summer on demand
+    stateDamp =  moveDamp(zone, sensor, true);
+    Serial.print("Sumer on demand: ");
+    Serial.println(stateDamp);
+  }else if(mode == true && t <= temperatureTarget){//Summer out of demand
+    stateDamp = moveDamp(zone, sensor, false);
+    Serial.print("Summer out of demand: ");
+    Serial.println(stateDamp);
+  }else if(mode == false && t < temperatureTarget){//Winter on demand
+    stateDamp = moveDamp(zone, sensor, true);
+    Serial.print("Winter on demand: ");
+    Serial.println(stateDamp);
+  }else if(mode == false && t >= temperatureTarget  ){//Winter out of demand
+    stateDamp = moveDamp(zone, sensor, false);
+    Serial.print("Winter out of demand: ");
+    Serial.println(stateDamp);
   }else{
-    Serial.print("COSA RARA");
+    String n = zone.getName();
+    Serial.print(n);
+    Serial.println(" hace cosas raras");
   }
+  return stateDamp;
 }
+
+
+
 void setup() {
   Serial.begin(9600);
   // put your setup code here, to run once:
-  sensor1.begin();
-  delay(2000);
-  sensor2.begin();
-  delay(2000);
-  sensor3.begin();
-  delay(2000);
-  sensor4.begin();
-  delay(2000);
+
+  for (int i = 0 ; i < 4 ; i++){
+    sensors[i].begin();
+    delay(2000);
+  }
+ 
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-  
-  /*delay(6000);
-  printInfo(zone1,sensor1);
-  delay(6000);
-  printInfo(zone2,sensor2);
-  delay(6000);
-  printInfo(zone3, sensor3);
-  delay(6000);
-  printInfo(zone4, sensor4);*/
 
-  Zone zones[4] = {zone1, zone2, zone3, zone4};
-  DHT sensors[4] = {sensor1, sensor2, sensor3, sensor4};
-
-  
-
-  /*for(int i = 0 ; i < 4 ; i++){
-    DHT s =sensors[i];
-    Zone z = zones[i];
-    printInfo(z, s);
-    delay(6000);
-  }*/
+  //Zone zones[4] = {zone1, zone2, zone3, zone4};
+  //DHT sensors[4] = {sensor1, sensor2, sensor3, sensor4};
 
   for(int i = 0 ; i < 4 ; i++){
-    DHT s = sensors[i];
-    Zone z = zones[i];
-    climateZone(mode, z, s);
+    bool stateDamp;
+    stateDamp = climateZone(mode, zones[i], sensors[i]);
     delay(6000);
-    printInfo(z, s);
+    zones[i].setStateDamp(stateDamp);
+    printInfo(zones[i], sensors[i]);
   }
-
   
 }
